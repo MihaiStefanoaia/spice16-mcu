@@ -55,21 +55,21 @@ Reserved (non usable) registers:
 
 | opcode | instruction name | description |
 |--------|------------------|-------------|
-| 0x0    | ivt              | 2s complement invert an 8 bit register 
-| 0x1    | not              | bitwise not
-| 0x2    | shlshr           | shift left or right by unary immediate depending on the x bit
-| 0x3    | tst              | calculate the flags based on the given value and immediate mask
-| 0x4    | muldiv           | mul or div depending on the x bit
+| 0x0    | notivt           | bitwise not or 2s complement invert an 8 bit register depending on the x bit
+| 0x1    | shlshr           | shift left or right by unary immediate depending on the x bit
+| 0x2    | flgldst          | Flag load or flag store depending on the x bit
+| 0x3    | muldiv           | mul or div depending on the x bit
+| 0x4    | tst              | calculate the flags based on the given value and immediate mask
 | 0x5    | swp16            | swap the values in one of the 16 bit registers with the rsx
-| 0x6    | lim              | load immediate
-| 0x7    | add16            | add signed immediate to 16 bit register
+| 0x6    | \<reserved\>     | unused
+| 0x7    | \<reserved\>     | unused
 | 0x8    | mov              | copy value from one register to another
 | 0x9    | adcsub           | add with carry or subtract depending on the x bit
 | 0xA    | andor            | bitwise and or bitwise or depending on the x bit
 | 0xB    | mwrmrd           | memory write or memory read depending on the x bit
-| 0xC    | \<reserved\>     | unused
-| 0xD    | \<reserved\>     | unused
-| 0xE    | \<reserved\>     | unused
+| 0xC    | lim              | load immediate
+| 0xD    | add16            | add signed immediate to 16 bit register
+| 0xE    | irq              | various interrupt configuration intructions
 | 0xF    | cnj              | conditional near jump
 
 Note: "depending on the x bit" means that the first specified instruction is run if x is 0, and the second if x is 1
@@ -94,14 +94,17 @@ instructions:
     - move a value from one 8 bit register to another
 - adcsub
     - add (`adc` if x=0) or subtract (`sub` if x=1) the two 8 bit registers
-    - adc will consume the `carry` flag as carry in
+    - `adc` will consume the `carry` flag as carry in
+    - `sub` will set the carry bit to 1 if a borrow was not needed
     - sets the zero, carry, negative and overflow to their relevant values
 - andor
-    - bitwise and (if x=0) or bitwise or (if x=1) the two 8 bit registers
+    - bitwise and (`and` if x=0) or bitwise or (`or` if x=1) the two 8 bit registers
 - mwrmrd
     - write to memory (if x=0) or read from memory (if x=1)
     - on write, use 16 bit register associated with the left operand as the address to which to write, and the 8 bit value of the right operand as the value
     - on read, use the value of the 8 bit register of the left operand as the value, and the 16 bit register associated with the right operant as the address from which to read
+    - mnemonic for read:  `memrd <val_reg> <addr_reg>`
+    - mnemonic for write: `memwr <addr_reg> <val_reg>`
 
 ### Unary operation
 
@@ -114,16 +117,15 @@ instructions:
 - x - instruction mode (basically opcode expansion)
 
 instructions:
-- ivt
-    - 2s complement invert the selected register
-- not
-    - Bitwise not the selected register
+- notivt
+    - Bitwise not (`not` if x=0) or 2s complement invert (`ivt` if x=1) the selected register
 - shlshr
     - Shift the register left (`shl` if x=0) or right (`shr` if x=1) by the lowest 3 bits of the included immediate
         - Sets the carry flag based on the value of the last bit "consumed" by the shift - see [below](#shift-carry-behaviour)
 - tst
     - Test and update the flags register based on the immediate mask
     - Computes the zero and negative flags, and resets the carry and overflow if selected
+    - if the `x` bit is set, the flags register gets inverted
     - The update formula goes like so: `for i in [0..3]: flags[i] = computed[i] if mask[i] else flags[i]`
 - muldiv
     - Select the 16 bit register associated with the register in `r` and multiply (`mul` if x=0) or divide (`div` if x=1) the high with the low
@@ -131,10 +133,14 @@ instructions:
         - multiplication sets the 0, negative and overflow flags based on the high byte
     - Division will save the remainder of the division into `r_h` and the result into `r_l`
         - division sets the 0 flag based on the remainder
+        - on division by 0, the source registers are left unchanged and interrupt 7 is triggered by the ALU to launch a user defined exception handler
     - The 16 bit register used is the one expanded from the encoding for the 8 bit one - for example instructions encoded as using either r0h or r0l will use r0x
 - swp16
     - Swap the contents of the selected register with the `rsx`. Useful for far jumps and function calls
     - The 16 bit register used is the one expanded from the encoding for the 8 bit one - for example instructions encoded as using either r0h or r0l will use r0x
+- flgldst
+    - Load (`flgld` if x=0) from or store (`flgst` if x=1) the flags register into the selected register
+    - When executed in an ISR context, it operates on the real version of the flags register, not the shadow. See [ISR register interaction](#interaction-with-the-registers)
 
 
 
@@ -153,6 +159,17 @@ instructions:
 - add16
     - Add the immediate to the selected 16 bit register. The immediate is signed in 2s complement
     - The 16 bit register used is the one expanded from the encoding for the 8 bit one - for example instructions encoded as using either r0h or r0l will use r0x
+- irq
+    - Various interrupt related instructions
+    - `0x0` - ISR exit
+        - When called outside the ISR context, it does nothing
+        - Mnemonic: `isrex`
+    - `0x1` - Disable interrupts
+        - Mnemonic: `irqdis`
+    - `0x2` - Enable  interrupts
+        - Mnemonic: `irqen`
+    - `0x3 | (x << 3)` - trigger interrupt x
+        - Mnemonic: `int x`
 
 ### Conditional instruction
 
@@ -168,8 +185,27 @@ instructions:
 - cnj
     - The only conditional instruction in the architecture. If `(cond | (v ? rgf : ~rgf)) == 0xF`, jump by `i` instructions 
     - A special "halt" instruction (`hlt`) is a special encoding of this instruction 
-        - `cnj 0xF -1` - unconditional jump to the previous instruction
+        - `cnj 0xF 0 -1` - unconditional jump to the previous instruction
+        - asm syntax: `cnj <mask> <b> <imm>`
     - The condition bits are in the same order as the flags register
+
+## Interrupts
+
+The Spice16 architecture supports 7 interrupts. Interrupt value 0 is invalid, and the interrupt priorities are in ascending order (for example if both INT7 and INT4 are in the IRQ, INT7 will execute first). Interrupts are disabled by default, and must be enabled by using a `irqen` instruction at some point in the program execution for them to be available. When running in ISR mode, any additional interrupts are disabled.
+
+### Interrupt Vector Table
+
+It is a region of memory starting at address `0xFFF2`, containing the 7 pointers to the ISR handles. On startup it is zeroed out.
+
+It is recommended for a program to have a `isrex` at address 0 for any untreated interrupts.
+
+### ISR startup and register usage
+
+When running in ISR mode, the `rpx` register is frozen and a special "shadow" PC is used instead of it. This allows an interrupt routine to modify the place at which the execution resumes - for example in a context switching subroutine.
+
+### Interaction with the registers
+
+When entering ISR execution mode, the `rgf`, and `rsx` registers swap to shadow versions of themselves, populated with the values of the originals at the moment of entry in the ISR mode; the original versions stay unchanged, unless instructions that explicitly operate on the original registers are executed (see `flgldst`). When resuming execution, the values in these shadow registers get discarded.
 
 ## Instruction uses
 
@@ -178,8 +214,8 @@ instructions:
 ```
     lim   rah 0xFE
     lim   ral 0x00
-    swp16 rax
-    swp16 rpx
+    swp16 rax ; load rsx with the rax
+    swp16 rpx ; swap rsx into rpx
 ```
 
 ### Function call
@@ -200,7 +236,7 @@ instructions:
     add16 rtx 1
 ```
 
-### Function return
+### Function entry and return
 
 ```
 _func_entry:
@@ -213,7 +249,7 @@ _func_entry:
     mov   rbh rth
     ; stack is set up here
     ; function finally starts
-    ...
+    ; ...
     memrd rbl rtx
     add16 rtx 1
     memrd rbh rtx
@@ -228,7 +264,7 @@ The code below keeps looping infinitely
 
 ```
     lim   r0l 0xF4 ; 1111 0100
-    shl   r0l 3    ; 1111 0[[1]00]
+    shr   r0l 3    ; 1111 0[[1]00]
     jc    1        ; near jump if carry
     hlt            ; halt instruction never executes
     jmp   -5       ; go back to the beginning
@@ -237,8 +273,8 @@ The code below keeps looping infinitely
 While the code below stops at the `hlt` instuction
 
 ```
-    lim   r0l 0xF4 ; 1111 0100
-    shl   r0l 4    ; 1111 [[0]100]
+    lim   r0l 0xE4 ; 1110 0100
+    shl   r0l 4    ; [111[0]] 0100
     jc    1        ; near jump if carry (doesn't execute)
     hlt            ; halt instruction executes
     jmp   -5
