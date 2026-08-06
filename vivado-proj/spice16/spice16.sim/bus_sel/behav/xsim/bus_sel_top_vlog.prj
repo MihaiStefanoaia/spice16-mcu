@@ -1,0 +1,11 @@
+# compile verilog/system verilog design source files
+verilog xil_defaultlib  \
+"../../../../spice16.srcs/sim_1/new/clock.v" \
+"../../../../spice16.srcs/sources_1/new/sp16_bus_selector.v" \
+"../../../../spice16.srcs/bus_sel/new/bus_sel_top.v" \
+
+# compile glbl module
+verilog xil_defaultlib "glbl.v"
+
+# Do not sort compile order
+nosort

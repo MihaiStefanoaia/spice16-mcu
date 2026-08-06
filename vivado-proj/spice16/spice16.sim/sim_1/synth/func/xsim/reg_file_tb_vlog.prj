@@ -1,0 +1,9 @@
+# compile verilog/system verilog design source files
+verilog xil_defaultlib  \
+"reg_file_tb_func_synth.v" \
+"../../../../../spice16.srcs/sim_1/new/clock.v" \
+"../../../../../spice16.srcs/sources_1/new/sp16_reg_file.v" \
+"../../../../../spice16.srcs/sim_1/new/reg_file_tb.v" \
+
+# Do not sort compile order
+nosort

@@ -1,0 +1,8 @@
+0.7
+2020.2
+Oct 13 2023
+20:47:58
+C:/vivado-proj/spice16/spice16.sim/sim_1/behav/xsim/glbl.v,1697210495,verilog,,,,glbl,,,,,,,,
+C:/vivado-proj/spice16/spice16.srcs/sim_1/new/clock.v,1784836335,verilog,,C:/vivado-proj/spice16/spice16.srcs/sources_1/new/sp16_reg_file.v,,clock,,,,,,,,
+C:/vivado-proj/spice16/spice16.srcs/sim_1/new/reg_file_tb.v,1785006932,verilog,,,,reg_file_tb,,,,,,,,
+C:/vivado-proj/spice16/spice16.srcs/sources_1/new/sp16_reg_file.v,1785060468,verilog,,C:/vivado-proj/spice16/spice16.srcs/sim_1/new/reg_file_tb.v,,sp16_reg_file,,,,,,,,

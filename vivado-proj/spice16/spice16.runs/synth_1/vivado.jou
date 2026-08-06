@@ -1,0 +1,14 @@
+#-----------------------------------------------------------
+# Vivado v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:14:34 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Fri Jul 24 03:05:32 2026
+# Process ID: 42636
+# Current directory: C:/vivado-proj/spice16/spice16.runs/synth_1
+# Command line: vivado.exe -log sp16_bus_selector.vds -product Vivado -mode batch -messageDb vivado.pb -notrace -source sp16_bus_selector.tcl
+# Log file: C:/vivado-proj/spice16/spice16.runs/synth_1/sp16_bus_selector.vds
+# Journal file: C:/vivado-proj/spice16/spice16.runs/synth_1\vivado.jou
+# Running On: DESKTOP-PJFE687, OS: Windows, CPU Frequency: 4192 MHz, CPU Physical cores: 16, Host memory: 33450 MB
+#-----------------------------------------------------------
+source sp16_bus_selector.tcl -notrace
